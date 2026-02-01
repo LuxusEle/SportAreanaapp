@@ -13,18 +13,21 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ activeTab }) => 
   const [searchTerm, setSearchTerm] = useState('');
   const [showCashierQr, setShowCashierQr] = useState(false);
   const [checkInMsg, setCheckInMsg] = useState('');
-  const [gpsSimLat, setGpsSimLat] = useState<number>(34.0522); // Default to venue location
+  const [gpsSimLat, setGpsSimLat] = useState<number>(34.0522); 
   const [gpsSimLng, setGpsSimLng] = useState<number>(-118.2437);
+  const [filterStatus, setFilterStatus] = useState<BookingStatus | 'ALL'>('ALL');
 
   const today = new Date().toISOString().split('T')[0];
   const todayBookings = bookings.filter(b => b.date === today);
   const checkedInCount = todayBookings.filter(b => b.status === BookingStatus.CHECKED_IN).length;
+  const pendingCount = todayBookings.length - checkedInCount;
 
-  const handleManualCheckIn = (bookingId: string) => {
-    const result = checkIn(bookingId); // No GPS override
-    setCheckInMsg(result.message);
-    setTimeout(() => setCheckInMsg(''), 3000);
-  };
+  const filteredBookings = todayBookings.filter(b => {
+      if (filterStatus === 'ALL') return true;
+      if (filterStatus === BookingStatus.CHECKED_IN) return b.status === BookingStatus.CHECKED_IN;
+      if (filterStatus === BookingStatus.PENDING_PAYMENT) return b.status !== BookingStatus.CHECKED_IN; // Simplifying 'Pending' for this view
+      return true;
+  });
 
   const handleGPSCheckIn = (bookingId: string) => {
       const result = checkIn(bookingId, gpsSimLat, gpsSimLng);
@@ -32,29 +35,33 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ activeTab }) => 
       setTimeout(() => setCheckInMsg(''), 3000);
   }
 
-  const filteredBookings = bookings.filter(b => 
-    b.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    b.userId.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   return (
     <div className="space-y-8">
-      {/* Top Stats Bar */}
+      {/* Top Stats Bar - 3D Clickable */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white/70 dark:bg-gray-900/60 backdrop-blur-lg p-6 rounded-3xl shadow-card-light dark:shadow-card-dark border border-gray-100 dark:border-white/10 flex flex-col justify-between h-32 relative overflow-hidden">
-           <div className="absolute right-0 top-0 w-24 h-24 bg-indigo-500/10 rounded-bl-full"></div>
+        <div 
+            onClick={() => setFilterStatus('ALL')}
+            className={`bg-white/70 dark:bg-gray-900/60 backdrop-blur-lg p-6 rounded-3xl border border-gray-100 dark:border-white/10 flex flex-col justify-between h-32 relative overflow-hidden transform hover:-translate-y-1 transition-all cursor-pointer group ${filterStatus === 'ALL' ? 'ring-2 ring-indigo-500 shadow-lg' : 'shadow-md'}`}
+        >
+           <div className="absolute right-0 top-0 w-24 h-24 bg-indigo-500/10 rounded-bl-full group-hover:scale-110 transition-transform"></div>
            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider z-10">Total Bookings</p>
            <p className="text-4xl font-extrabold text-gray-900 dark:text-white z-10">{todayBookings.length}</p>
         </div>
-        <div className="bg-white/70 dark:bg-gray-900/60 backdrop-blur-lg p-6 rounded-3xl shadow-card-light dark:shadow-card-dark border border-gray-100 dark:border-white/10 flex flex-col justify-between h-32 relative overflow-hidden">
-           <div className="absolute right-0 top-0 w-24 h-24 bg-green-500/10 rounded-bl-full"></div>
+        <div 
+            onClick={() => setFilterStatus(BookingStatus.CHECKED_IN)}
+            className={`bg-white/70 dark:bg-gray-900/60 backdrop-blur-lg p-6 rounded-3xl border border-gray-100 dark:border-white/10 flex flex-col justify-between h-32 relative overflow-hidden transform hover:-translate-y-1 transition-all cursor-pointer group ${filterStatus === BookingStatus.CHECKED_IN ? 'ring-2 ring-green-500 shadow-lg' : 'shadow-md'}`}
+        >
+           <div className="absolute right-0 top-0 w-24 h-24 bg-green-500/10 rounded-bl-full group-hover:scale-110 transition-transform"></div>
            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider z-10">Checked In</p>
            <p className="text-4xl font-extrabold text-green-600 dark:text-green-500 z-10">{checkedInCount}</p>
         </div>
-        <div className="bg-white/70 dark:bg-gray-900/60 backdrop-blur-lg p-6 rounded-3xl shadow-card-light dark:shadow-card-dark border border-gray-100 dark:border-white/10 flex flex-col justify-between h-32 relative overflow-hidden">
-           <div className="absolute right-0 top-0 w-24 h-24 bg-orange-500/10 rounded-bl-full"></div>
+        <div 
+            onClick={() => setFilterStatus(BookingStatus.PENDING_PAYMENT)}
+            className={`bg-white/70 dark:bg-gray-900/60 backdrop-blur-lg p-6 rounded-3xl border border-gray-100 dark:border-white/10 flex flex-col justify-between h-32 relative overflow-hidden transform hover:-translate-y-1 transition-all cursor-pointer group ${filterStatus === BookingStatus.PENDING_PAYMENT ? 'ring-2 ring-orange-500 shadow-lg' : 'shadow-md'}`}
+        >
+           <div className="absolute right-0 top-0 w-24 h-24 bg-orange-500/10 rounded-bl-full group-hover:scale-110 transition-transform"></div>
            <p className="text-sm font-bold text-gray-500 uppercase tracking-wider z-10">Pending</p>
-           <p className="text-4xl font-extrabold text-orange-500 z-10">{todayBookings.length - checkedInCount}</p>
+           <p className="text-4xl font-extrabold text-orange-500 z-10">{pendingCount}</p>
         </div>
       </div>
 
@@ -62,10 +69,10 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ activeTab }) => 
       {activeTab === 'dashboard' && (
          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-3xl shadow-depth-light dark:shadow-depth-dark border border-gray-100 dark:border-white/10 overflow-hidden">
             <div className="p-6 border-b border-gray-100 dark:border-white/10 flex justify-between items-center">
-               <h3 className="font-bold text-lg text-gray-900 dark:text-white">Today's Schedule</h3>
+               <h3 className="font-bold text-lg text-gray-900 dark:text-white">Today's Schedule {filterStatus !== 'ALL' && `(${filterStatus})`}</h3>
             </div>
             <div className="divide-y divide-gray-100 dark:divide-white/5">
-               {todayBookings.map(booking => {
+               {filteredBookings.length > 0 ? filteredBookings.map(booking => {
                    const res = resources.find(r => r.id === booking.resourceId);
                    return (
                      <div key={booking.id} className="p-4 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors flex items-center justify-between">
@@ -91,11 +98,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ activeTab }) => 
                         </div>
                      </div>
                    )
-               })}
+               }) : (
+                   <div className="p-8 text-center text-gray-500">No bookings match this filter.</div>
+               )}
             </div>
          </div>
       )}
 
+      {/* Other tabs remain similar but ensure styles match */}
       {/* PAYMENTS MODULE */}
       {activeTab === 'payments' && (
           <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md rounded-3xl shadow-depth-light dark:shadow-depth-dark border border-gray-100 dark:border-white/10 p-6">
@@ -154,7 +164,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ activeTab }) => 
                 {resources.map(r => <option key={r.id} value={r.id} className="bg-white dark:bg-gray-900">{r.name} (${r.hourlyRate}/hr)</option>)}
               </select>
             </div>
-            {/* ... other inputs ... */}
           </div>
           
           <div className="p-6 bg-gray-100 dark:bg-gradient-to-r dark:from-gray-800 dark:to-black rounded-2xl text-gray-900 dark:text-white mb-8 shadow-lg border border-gray-200 dark:border-white/10">

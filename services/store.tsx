@@ -4,6 +4,24 @@ import { Booking, BookingStatus, Resource, User, UserRole, Tenant, Transaction, 
 import { MOCK_RESOURCES, MOCK_TENANT, MOCK_USERS, MOCK_POLICIES, MOCK_RATE_CARDS, MOCK_TRANSACTIONS } from '../constants';
 import { supabase } from './supabase';
 
+// Mock Merchandise & Classes for the store
+const MOCK_MERCHANDISE = [
+    { id: 'm1', name: 'Pro Basketball', price: 4500, image: 'https://images.unsplash.com/photo-1519861531473-920026393112?q=80&w=400&auto=format&fit=crop' },
+    { id: 'm2', name: 'Team Jersey Set', price: 8000, image: 'https://images.unsplash.com/photo-1577212017184-80e68a223f22?q=80&w=400&auto=format&fit=crop' },
+    { id: 'm3', name: 'Swimming Goggles', price: 1500, image: 'https://images.unsplash.com/photo-1576610616656-d3aa5d1f4534?q=80&w=400&auto=format&fit=crop' }
+];
+
+const MOCK_CLASSES = [
+    { id: 'c1', name: 'HIIT Training', instructor: 'Coach Carter', time: '18:00', image: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=400&auto=format&fit=crop' },
+    { id: 'c2', name: 'Youth Swim Camp', instructor: 'Sarah Staff', time: '16:00', image: 'https://images.unsplash.com/photo-1530549387789-4c1017266635?q=80&w=400&auto=format&fit=crop' }
+];
+
+const MOCK_PACKAGES = [
+    { id: 'p1', name: 'Starter Pack', price: 2000, credits: 2000, bonus: 0, color: 'from-gray-700 to-gray-600' },
+    { id: 'p2', name: 'Pro Athlete', price: 5000, credits: 5500, bonus: 500, color: 'from-indigo-600 to-blue-600' },
+    { id: 'p3', name: 'Team Captain', price: 10000, credits: 12000, bonus: 2000, color: 'from-amber-500 to-orange-600' }
+];
+
 interface AppState {
   currentUser: User | null;
   tenant: Tenant;
@@ -12,16 +30,23 @@ interface AppState {
   transactions: Transaction[];
   policies: Policy;
   rateCards: RateCard[];
+  merchandise: any[];
+  classes: any[];
+  packages: any[];
+  trainers: User[];
   theme: 'dark' | 'light';
   login: (role: UserRole) => void;
   logout: () => void;
   toggleTheme: () => void;
   createBooking: (booking: Omit<Booking, 'id' | 'status' | 'qrCode' | 'paymentQr'>) => Promise<Booking>;
   updateBookingStatus: (bookingId: string, status: BookingStatus) => void;
+  joinBooking: (code: string) => boolean; 
   cancelBooking: (bookingId: string, reason?: string) => void;
+  topUpWallet: (amount: number, credits: number) => void;
   checkIn: (bookingId: string, lat?: number, lng?: number) => { success: boolean; message: string };
   updateTenantBranding: (branding: Partial<Tenant>) => void;
   addResource: (resource: Resource) => void;
+  updateResource: (resource: Resource) => Promise<void>;
   updatePolicy: (policy: Partial<Policy>) => void;
   addRateCard: (card: RateCard) => void;
   updateIntegration: (config: { apiKey: string, webhookUrl: string }) => void;
@@ -70,12 +95,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                  mode: r.mode,
                  capacity: r.capacity,
                  hourlyRate: r.hourly_rate,
-                 // Use DB image, or fallback to Mock if empty/null, or fallback to Generic based on Type
                  image: r.image || MOCK_RESOURCES.find(mr => mr.id === r.id)?.image || FALLBACK_IMAGES[r.type] || FALLBACK_IMAGES['default']
              }));
              setResources(mappedResources);
          } else {
-             // DB connection good but table empty? Seed it.
              await seedDatabase();
          }
       }
@@ -121,36 +144,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     } catch (e) {
       console.warn("ArenaOS: Error refreshing Supabase data", e);
-      // Don't set connected false here, stick to last known good or initial check
     }
   }, []);
 
-  // Initialize Data & Realtime Subscription
+  // Initialize Data
   useEffect(() => {
     const initData = async () => {
       if (supabase) {
-        // Initial Fetch
         await refreshData();
-
-        // Subscribe to changes
         const channel = supabase.channel('schema-db-changes')
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'bookings' },
-            () => { console.log('🔔 Bookings updated!'); refreshData(); }
-          )
-          .on(
-             'postgres_changes',
-             { event: '*', schema: 'public', table: 'resources' },
-             () => { console.log('🔔 Resources updated!'); refreshData(); }
-          )
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => refreshData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'resources' }, () => refreshData())
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'transactions' }, () => refreshData())
           .subscribe();
 
-        return () => {
-          supabase.removeChannel(channel);
-        };
+        return () => { supabase.removeChannel(channel); };
       } else {
-         // Fallback
          setBookings([
             {
               id: 'bk_demo_1',
@@ -168,16 +177,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
          ]);
       }
     };
-
     initData();
   }, [refreshData]);
 
   const seedDatabase = async () => {
     if (!supabase) return;
-    console.log("ArenaOS: Seeding Database with Mock Data...");
-    
-    // Seed Resources
-    const { error: seedError } = await supabase.from('resources').upsert(
+    const { error } = await supabase.from('resources').upsert(
         MOCK_RESOURCES.map(r => ({
             id: r.id,
             tenant_id: r.tenantId,
@@ -189,13 +194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             image: r.image
         }))
     );
-    
-    if (seedError) {
-        console.error("Failed to seed resources:", seedError);
-    } else {
-        console.log("Resources seeded successfully!");
-        refreshData(); // Refresh to get the new data
-    }
+    if (!error) refreshData();
   };
 
   const login = (role: UserRole) => {
@@ -224,22 +223,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createBooking = async (bookingData: Omit<Booking, 'id' | 'status' | 'qrCode' | 'paymentQr'>): Promise<Booking> => {
-    const dynamicPrice = calculatePrice(bookingData.resourceId, bookingData.date, bookingData.startTime, bookingData.duration) * (bookingData.quantity || 1);
+    const dynamicPrice = bookingData.totalAmount > 0 
+        ? bookingData.totalAmount // Use passed amount if manually set (e.g. including trainer fee)
+        : calculatePrice(bookingData.resourceId, bookingData.date, bookingData.startTime, bookingData.duration) * (bookingData.quantity || 1);
 
     const newBooking: Booking = {
       ...bookingData,
       id: `bk_${Date.now()}`,
-      status: BookingStatus.CONFIRMED,
-      qrCode: `ENTRY-${Date.now()}`,
+      status: BookingStatus.PENDING_PAYMENT, // Initial status is pending payment
+      qrCode: `ENTRY-${Math.floor(Math.random() * 10000)}`,
       paymentQr: `PAY-${Date.now()}`,
       totalAmount: dynamicPrice
     };
 
+    // Automatically create a linked transaction
+    const newTransaction: Transaction = {
+        id: `tx_${Date.now()}`,
+        bookingId: newBooking.id,
+        userId: newBooking.userId,
+        amount: dynamicPrice,
+        date: new Date().toISOString().split('T')[0],
+        type: 'PAYMENT',
+        status: PaymentStatus.PENDING,
+        method: 'QR',
+        reference: `REF-${Math.floor(Math.random() * 1000000)}`
+    };
+
     // Optimistic Update
     setBookings(prev => [...prev, newBooking]);
+    setTransactions(prev => [...prev, newTransaction]);
 
     if (supabase && isSupabaseConnected) {
-        const { error } = await supabase.from('bookings').insert({
+        await supabase.from('bookings').insert({
             id: newBooking.id,
             tenant_id: newBooking.tenantId,
             resource_id: newBooking.resourceId,
@@ -253,7 +268,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             payment_qr: newBooking.paymentQr,
             quantity: newBooking.quantity
         });
-        if (error) console.error("Booking insert failed:", error);
+        
+        await supabase.from('transactions').insert({
+            id: newTransaction.id,
+            booking_id: newTransaction.bookingId,
+            user_id: newTransaction.userId,
+            amount: newTransaction.amount,
+            date: newTransaction.date,
+            type: newTransaction.type,
+            status: newTransaction.status,
+            method: newTransaction.method,
+            reference: newTransaction.reference
+        });
     }
     
     return newBooking;
@@ -266,6 +292,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Mock Join Booking logic
+  const joinBooking = (code: string) => {
+      const exists = bookings.some(b => b.qrCode === code);
+      return exists;
+  };
+
   const cancelBooking = async (bookingId: string, reason?: string) => {
     updateBookingStatus(bookingId, BookingStatus.CANCELLED);
   };
@@ -273,6 +305,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const checkIn = (bookingId: string, lat?: number, lng?: number): { success: boolean; message: string } => {
     updateBookingStatus(bookingId, BookingStatus.CHECKED_IN);
     return { success: true, message: 'Check-in Successful' };
+  };
+
+  const topUpWallet = (amount: number, credits: number) => {
+      if (currentUser) {
+          setCurrentUser({ ...currentUser, credits: (currentUser.credits || 0) + credits });
+          // Add transaction record
+          const newTx: Transaction = {
+              id: `tx_pkg_${Date.now()}`,
+              bookingId: 'pkg_topup',
+              userId: currentUser.id,
+              amount: amount,
+              date: new Date().toISOString().split('T')[0],
+              type: 'PAYMENT',
+              status: PaymentStatus.COMPLETED,
+              method: 'CREDITS',
+              reference: `PKG-${Math.floor(Math.random() * 10000)}`
+          };
+          setTransactions(prev => [newTx, ...prev]);
+      }
   };
 
   const updateTenantBranding = (branding: Partial<Tenant>) => {
@@ -295,6 +346,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateResource = async (resource: Resource) => {
+    setResources(prev => prev.map(r => r.id === resource.id ? resource : r));
+    if (supabase && isSupabaseConnected) {
+        await supabase.from('resources').update({
+             name: resource.name,
+             type: resource.type,
+             mode: resource.mode,
+             capacity: resource.capacity,
+             hourly_rate: resource.hourlyRate,
+             image: resource.image
+        }).eq('id', resource.id);
+    }
+  };
+
   const updatePolicy = (policy: Partial<Policy>) => {
       setPolicies(prev => ({ ...prev, ...policy }));
   };
@@ -309,6 +374,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const verifyTransaction = (transactionId: string) => {
       setTransactions(prev => prev.map(t => t.id === transactionId ? { ...t, status: PaymentStatus.COMPLETED } : t));
+      
+      // Auto-confirm the associated booking if transaction is valid
+      const tx = transactions.find(t => t.id === transactionId);
+      if (tx) {
+          updateBookingStatus(tx.bookingId, BookingStatus.CONFIRMED);
+      }
   };
 
   return (
@@ -320,6 +391,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       transactions,
       policies,
       rateCards,
+      merchandise: MOCK_MERCHANDISE,
+      classes: MOCK_CLASSES,
+      packages: MOCK_PACKAGES,
+      trainers: MOCK_USERS.filter(u => u.role === UserRole.TRAINER),
       theme,
       isSupabaseConnected,
       login,
@@ -327,10 +402,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       toggleTheme,
       createBooking,
       updateBookingStatus,
+      joinBooking,
       cancelBooking,
       checkIn,
+      topUpWallet,
       updateTenantBranding,
       addResource,
+      updateResource,
       updatePolicy,
       addRateCard,
       updateIntegration,
