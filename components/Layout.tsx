@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useApp } from '../services/store';
 import { 
   LogOut, 
@@ -19,9 +19,14 @@ import {
   Clock,
   DollarSign,
   Sun,
-  Moon
+  Moon,
+  Zap,
+  Activity,
+  Globe,
+  Database,
+  PlayCircle
 } from 'lucide-react';
-import { UserRole } from '../types';
+import { UserRole, BookingStatus } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -29,9 +34,26 @@ interface LayoutProps {
   setActiveTab: (tab: string) => void;
 }
 
+// Curated high-quality sports images for the background carousel
+const BACKGROUND_IMAGES = [
+  'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=2564&auto=format&fit=crop', // Basketball
+  'https://images.unsplash.com/photo-1579952363873-27f3bde9be2b?q=80&w=2564&auto=format&fit=crop', // Soccer
+  'https://images.unsplash.com/photo-1576610616656-d3aa5d1f4534?q=80&w=2564&auto=format&fit=crop', // Swimming
+  'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?q=80&w=2564&auto=format&fit=crop', // Tennis
+  'https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=2564&auto=format&fit=crop', // Crossfit
+];
+
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
-  const { currentUser, logout, tenant, theme, toggleTheme } = useApp();
+  const { currentUser, logout, tenant, theme, toggleTheme, resources, bookings, isSupabaseConnected } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+
+  // Stats for Marquee
+  const activeArenas = resources.length;
+  const today = new Date().toISOString().split('T')[0];
+  const gamesInEffect = bookings.filter(b => b.date === today && (b.status === BookingStatus.CONFIRMED || b.status === BookingStatus.CHECKED_IN)).length;
+  // Simulating online users based on base + active transactions/bookings for hype
+  const sportsmenOnline = Math.floor(Math.random() * 5) + 120 + gamesInEffect * 2; 
 
   // Apply dark mode class to html element
   useEffect(() => {
@@ -42,9 +64,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
     }
   }, [theme]);
 
+  // Carousel Logic
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prev) => (prev + 1) % BACKGROUND_IMAGES.length);
+    }, 8000); // Change image every 8 seconds for "slow" effect
+    return () => clearInterval(interval);
+  }, []);
+
   // Helper for active button styling with Colored Underglow
   const activeBtn = (color: string = 'indigo') => {
-    // Map base color to specific styling
     const map: Record<string, { bg: string, ring: string, glow: string }> = {
       emerald: { bg: "bg-emerald-600", ring: "ring-emerald-300/30", glow: "glow-emerald" },
       orange:  { bg: "bg-orange-600",  ring: "ring-orange-300/30",  glow: "glow-orange" },
@@ -53,17 +82,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       blue:    { bg: "bg-blue-600",    ring: "ring-blue-300/30",    glow: "glow-blue" },
       indigo:  { bg: "bg-indigo-600",  ring: "ring-indigo-300/30",  glow: "glow-indigo" },
       slate:   { bg: "bg-slate-700",   ring: "ring-white/10",       glow: "glow-slate" },
-      gray:    { bg: "bg-gray-600",    ring: "ring-white/10",       glow: "glow-slate" }, // fallback to slate glow
+      gray:    { bg: "bg-gray-600",    ring: "ring-white/10",       glow: "glow-slate" }, 
     };
 
     const style = map[color] || map['indigo'];
-
-    // Combine styles:
-    // 1. Transform: Lift the button up significantly (-translate-y-1.5 = 6px)
-    // 2. Text: White
-    // 3. Ring: Subtle inner ring for crisp edges
-    // 4. Background: Solid color
-    // 5. Shadow: Custom colored directional underglow from index.html
     return `transform -translate-y-1.5 text-white ring-1 ${style.ring} ${style.bg} ${style.glow}`;
   };
 
@@ -106,45 +128,109 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
     }
   };
 
+  const MarqueeContent = () => (
+    <>
+      <div className="flex items-center mx-8">
+        <Activity className="w-4 h-4 text-indigo-400 mr-3" />
+        <span className="tracking-wide text-gray-200 uppercase text-xs font-bold">Live system status</span>
+      </div>
+      
+      <div className="flex items-center mx-8">
+        <Globe className="w-4 h-4 text-emerald-400 mr-3" />
+        <span className="tracking-wide text-gray-200 text-sm">
+           <span className="font-extrabold text-white text-lg mr-2">{activeArenas}</span> 
+           Active arenas
+        </span>
+      </div>
+
+      <div className="flex items-center mx-8">
+        <Users className="w-4 h-4 text-blue-400 mr-3" />
+        <span className="tracking-wide text-gray-200 text-sm">
+           <span className="font-extrabold text-white text-lg mr-2">{sportsmenOnline}</span> 
+           Athletes online
+        </span>
+      </div>
+
+      <div className="flex items-center mx-8">
+        <PlayCircle className="w-4 h-4 text-rose-400 mr-3" />
+        <span className="tracking-wide text-gray-200 text-sm">
+           <span className="font-extrabold text-white text-lg mr-2">{gamesInEffect}</span> 
+           Live games
+        </span>
+      </div>
+
+      <div className="flex items-center mx-8">
+        <Database className={`w-4 h-4 mr-3 ${isSupabaseConnected ? 'text-green-400' : 'text-red-400'}`} />
+        <span className="tracking-wide text-gray-200 text-sm">
+           Database sync: <span className={`font-bold ml-2 ${isSupabaseConnected ? 'text-green-400' : 'text-red-400'}`}>{isSupabaseConnected ? 'Online' : 'Offline'}</span>
+        </span>
+      </div>
+    </>
+  );
+
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex flex-col md:flex-row bg-gray-200 dark:bg-black transition-colors duration-500">
-      {/* 
-          DYNAMIC BACKGROUND
-          Light: Very bright overlay. Dark: Almost black overlay.
-      */}
-      <div 
-        className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out"
-        style={{ backgroundImage: `url(${tenant.backgroundImage})` }}
-      >
+    <div className="relative h-screen w-full overflow-hidden flex flex-col md:flex-row bg-gray-200 dark:bg-black transition-colors duration-500">
+      
+      {/* --- BACKGROUND CAROUSEL --- */}
+      <div className="absolute inset-0 z-0 overflow-hidden">
+        {BACKGROUND_IMAGES.map((img, index) => (
+          <div 
+            key={index}
+            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-[2000ms] ease-in-out ${index === currentBgIndex ? 'opacity-100 animate-ken-burns' : 'opacity-0'}`}
+            style={{ 
+              backgroundImage: `url(${img})`,
+            }}
+          />
+        ))}
+        {/* Posh Dotted Overlay & Blur */}
+        <div className="absolute inset-0 bg-dots opacity-40" />
         <div className="absolute inset-0 bg-white/70 dark:bg-black/80 backdrop-blur-[2px] transition-colors duration-500" />
       </div>
 
-      {/* Mobile Header */}
-      <div className="md:hidden glass-panel border-b border-gray-200 dark:border-white/10 p-4 flex justify-between items-center sticky top-0 z-20 relative m-4 rounded-xl shadow-depth-light dark:shadow-depth-dark">
-        <div className="flex items-center space-x-2">
-           <img src={tenant.logo} alt="Logo" className="w-8 h-8 rounded bg-gray-100 dark:bg-white/10 p-1" />
-           <span className="font-bold text-gray-900 dark:text-white">{tenant.name}</span>
-        </div>
-        <div className="flex items-center space-x-4">
-            <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors">
-                {theme === 'dark' ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>}
-            </button>
-            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-900 dark:text-white">
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-        </div>
+      {/* --- TIGER MARQUEE --- */}
+      <div className="absolute top-0 left-0 right-0 z-50 bg-indigo-950/90 backdrop-blur-md text-white py-2 overflow-hidden border-b border-white/5 shadow-2xl">
+         <div className="flex w-full whitespace-nowrap animate-marquee items-center">
+            <div className="flex items-center">
+               <MarqueeContent />
+            </div>
+            {/* Duplicate for seamless loop */}
+            <div className="flex items-center">
+               <MarqueeContent />
+            </div>
+            <div className="flex items-center">
+               <MarqueeContent />
+            </div>
+         </div>
       </div>
 
-      {/* GLASS SIDEBAR */}
+      {/* Mobile Header (Pushed down slightly by marquee) */}
+      <div className="md:hidden flex-none glass-panel border-b border-gray-200 dark:border-white/10 p-4 flex justify-between items-center z-20 relative m-4 mt-12 rounded-xl shadow-depth-light dark:shadow-depth-dark">
+        <div className="flex items-center space-x-4">
+           {/* Mobile Menu Button - Left Aligned */}
+           <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-900 dark:text-white">
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+           </button>
+           
+           <div className="flex items-center space-x-2">
+              <img src={tenant.logo} alt="Logo" className="w-8 h-8 rounded bg-gray-100 dark:bg-white/10 p-1" />
+              <span className="font-bold text-gray-900 dark:text-white truncate max-w-[150px]">{tenant.name}</span>
+           </div>
+        </div>
+        
+        {/* Theme Toggle - Right Aligned */}
+        <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors">
+            {theme === 'dark' ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>}
+        </button>
+      </div>
+
+      {/* GLASS SIDEBAR (Adjusted mt for marquee) */}
       <aside className={`
-        fixed inset-y-0 left-0 z-30 w-72 p-6 transform transition-transform duration-300 ease-out
+        fixed inset-y-0 left-0 z-30 w-72 p-6 pt-14 transform transition-transform duration-300 ease-out
         md:relative md:translate-x-0 md:flex md:flex-col
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Sidebar Container with DEEP Shadow */}
         <div className="h-full glass-panel rounded-3xl flex flex-col shadow-depth-light dark:shadow-depth-dark overflow-hidden relative transition-all duration-300">
           
-          {/* Logo Section */}
           <div className="p-8 flex flex-col items-center border-b border-gray-200 dark:border-white/10">
             <div className="w-20 h-20 rounded-2xl bg-white/50 dark:bg-white/5 p-2 shadow-inner mb-4 flex items-center justify-center border border-white/20 dark:border-white/10">
               <img src={tenant.logo} alt="Logo" className="w-full h-full object-contain opacity-90" />
@@ -155,7 +241,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             </span>
           </div>
 
-          {/* Nav Items */}
           <nav className="flex-1 space-y-3 p-4 overflow-y-auto no-scrollbar">
             {getNavItems().map((item) => {
               const Icon = item.icon;
@@ -182,10 +267,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
             })}
           </nav>
 
-          {/* User Profile Footer */}
           <div className="p-4 border-t border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
-            
-            {/* Theme Toggle (Desktop Position) */}
             <div className="hidden md:flex justify-end mb-4 px-2">
                  <button 
                     onClick={toggleTheme}
@@ -215,9 +297,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       </aside>
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 h-[calc(100vh)] md:h-screen p-4 md:p-6 overflow-hidden">
-        {/* Content Container - DEEP SHADOW APPLIED HERE */}
-        <div className="h-full w-full glass-panel rounded-3xl shadow-depth-light dark:shadow-depth-dark overflow-y-auto relative custom-scrollbar flex flex-col transition-all duration-300">
+      <main className="flex-1 overflow-hidden p-4 md:p-6 md:pt-14 relative z-10 mt-6 md:mt-0">
+        
+        {/* Content Container - Fixed Height Scrollable Area */}
+        <div className="h-full w-full glass-panel rounded-3xl shadow-depth-light dark:shadow-depth-dark overflow-y-auto custom-scrollbar flex flex-col transition-all duration-300">
+          
           {/* Header area inside content for context */}
           <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-6 border-b border-gray-200 dark:border-white/10 flex justify-between items-center transition-colors duration-300 shadow-sm">
              <div>
@@ -227,11 +311,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Welcome back, {currentUser?.name.split(' ')[0]}</p>
              </div>
              
-             {/* Dynamic Date/Status Widget */}
              <div className="hidden md:flex items-center space-x-4">
-                <div className="px-4 py-2 bg-white dark:bg-gray-800/80 rounded-xl shadow-card-light dark:shadow-card-dark border border-gray-100 dark:border-white/5 flex items-center space-x-2">
-                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                   <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">System Online</span>
+                <div className={`px-4 py-2 bg-white dark:bg-gray-800/80 rounded-xl shadow-card-light dark:shadow-card-dark border border-gray-100 dark:border-white/5 flex items-center space-x-2 ${!isSupabaseConnected ? 'border-red-500/50' : ''}`}>
+                   <div className={`w-2 h-2 rounded-full ${isSupabaseConnected ? 'bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]' : 'bg-red-500'}`} />
+                   <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">{isSupabaseConnected ? 'System Online' : 'Mock Mode'}</span>
                 </div>
                 <div className="px-4 py-2 bg-indigo-600 text-white rounded-xl shadow-glow-indigo flex items-center space-x-2 font-bold text-sm">
                    <Calendar className="w-4 h-4" />

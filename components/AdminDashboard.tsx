@@ -16,6 +16,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
   // Settings State
   const [bgImageInput, setBgImageInput] = useState(tenant.backgroundImage);
   const [primaryColor, setPrimaryColor] = useState(tenant.primaryColor);
+  const [currencyInput, setCurrencyInput] = useState(tenant.currency);
 
   // Resources State
   const [resourceList, setResourceList] = useState<Resource[]>(resources);
@@ -50,8 +51,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   const handleSaveSettings = () => {
-    updateTenantBranding({ backgroundImage: bgImageInput, primaryColor });
-    alert("Branding updated!");
+    updateTenantBranding({ backgroundImage: bgImageInput, primaryColor, currency: currencyInput });
+    alert("Branding and Settings updated!");
   };
 
   const handleAddResource = () => {
@@ -102,7 +103,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
                           <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{res.name}</h3>
                           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4 capitalize">{res.mode.toLowerCase()} Access • Capacity: {res.capacity}</p>
                           <div className="flex justify-between items-center">
-                              <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-lg">${res.hourlyRate}<span className="text-xs text-gray-400 dark:text-gray-500 font-normal">/hr (Base)</span></span>
+                              <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-lg">{tenant.currency} {res.hourlyRate}<span className="text-xs text-gray-400 dark:text-gray-500 font-normal">/hr (Base)</span></span>
                               <button onClick={() => alert("Edit resource feature coming soon.")} className="px-3 py-1 border border-gray-200 dark:border-white/10 rounded-lg text-sm font-bold text-gray-400 hover:text-indigo-600 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-white/5 transition-colors">Edit</button>
                           </div>
                       </div>
@@ -152,11 +153,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
                           <div className="space-y-3">
                               <div className="flex justify-between text-sm">
                                   <span className="text-gray-500">Base Rate</span>
-                                  <span className="font-bold text-gray-700 dark:text-gray-200">${rc.baseRate}/hr</span>
+                                  <span className="font-bold text-gray-700 dark:text-gray-200">{tenant.currency} {rc.baseRate}/hr</span>
                               </div>
                               <div className="flex justify-between text-sm">
                                   <span className="text-gray-500">Peak Rate</span>
-                                  <span className="font-bold text-indigo-600 dark:text-indigo-400">${rc.peakRate}/hr</span>
+                                  <span className="font-bold text-indigo-600 dark:text-indigo-400">{tenant.currency} {rc.peakRate}/hr</span>
                               </div>
                               <div className="flex justify-between text-sm">
                                   <span className="text-gray-500">Peak Hours</span>
@@ -198,7 +199,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
                               <input type="number" value={localPolicy.gpsRadiusMeters} onChange={e => setLocalPolicy({...localPolicy, gpsRadiusMeters: Number(e.target.value)})} className="w-full p-2 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-white/10 rounded-xl mt-1 text-gray-900 dark:text-white" />
                           </div>
                           <div>
-                              <label className="text-xs font-bold text-gray-500 uppercase">No-Show Penalty ($)</label>
+                              <label className="text-xs font-bold text-gray-500 uppercase">No-Show Penalty ({tenant.currency})</label>
                               <input type="number" value={localPolicy.noShowPenalty} onChange={e => setLocalPolicy({...localPolicy, noShowPenalty: Number(e.target.value)})} className="w-full p-2 bg-gray-50 dark:bg-black/30 border border-gray-200 dark:border-white/10 rounded-xl mt-1 text-gray-900 dark:text-white" />
                           </div>
                       </div>
@@ -324,7 +325,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
       {/* Overview Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
         {[
-          { title: 'Total Revenue', value: `$${totalRevenue + 4500}`, icon: DollarSign, color: 'from-green-100 to-emerald-200 dark:from-green-900 dark:to-emerald-950', iconColor: 'text-green-600 dark:text-green-400', trend: '+12.5%' },
+          { title: 'Total Revenue', value: `${tenant.currency} ${totalRevenue + 4500}`, icon: DollarSign, color: 'from-green-100 to-emerald-200 dark:from-green-900 dark:to-emerald-950', iconColor: 'text-green-600 dark:text-green-400', trend: '+12.5%' },
           { title: 'Active Bookings', value: bookings.length.toString(), icon: Calendar, color: 'from-blue-100 to-indigo-200 dark:from-blue-900 dark:to-indigo-950', iconColor: 'text-blue-600 dark:text-blue-400', trend: '+5%' },
           { title: 'Total Members', value: '1,240', icon: Users, color: 'from-purple-100 to-fuchsia-200 dark:from-purple-900 dark:to-fuchsia-950', iconColor: 'text-purple-600 dark:text-purple-400', trend: '+18%' },
           { title: 'Utilization', value: '78%', icon: Activity, color: 'from-orange-100 to-red-200 dark:from-orange-900 dark:to-red-950', iconColor: 'text-orange-600 dark:text-orange-400', trend: '-2%' },
@@ -373,7 +374,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme === 'dark' ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12, fontWeight: 600}} dy={10}/>
-                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} tickFormatter={(val) => `$${val}`}/>
+                  <YAxis axisLine={false} tickLine={false} tick={{fill: '#9ca3af', fontSize: 12}} tickFormatter={(val) => `${val}`} />
                   <Tooltip 
                     contentStyle={{borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)', background: theme === 'dark' ? '#111827' : '#fff'}}
                     itemStyle={{color: '#818cf8', fontWeight: 'bold'}}
@@ -391,9 +392,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
            <div className="relative bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-8 rounded-3xl shadow-card-light dark:shadow-card-dark border border-gray-100 dark:border-white/10 h-full">
              <div className="flex items-center space-x-3 mb-6">
                 <div className="p-2 bg-pink-100 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-500/20 rounded-lg text-pink-600 dark:text-pink-500">
-                  <ImageIcon className="w-6 h-6" />
+                  <Settings className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-xl text-gray-900 dark:text-white">Venue Branding</h3>
+                <h3 className="font-bold text-xl text-gray-900 dark:text-white">Venue Settings</h3>
              </div>
              
              <div className="space-y-4">
@@ -413,10 +414,19 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
                        <span className="text-sm font-mono text-gray-500">{primaryColor}</span>
                    </div>
                </div>
+               <div>
+                 <label className="block text-sm font-bold text-gray-500 dark:text-gray-400 mb-2">Currency (Symbol/Code)</label>
+                 <input 
+                   type="text" 
+                   value={currencyInput} 
+                   onChange={(e) => setCurrencyInput(e.target.value)}
+                   className="w-full p-4 rounded-xl bg-gray-50 dark:bg-black/40 border border-gray-200 dark:border-white/10 focus:border-indigo-500 focus:ring-0 shadow-inner text-sm transition-all text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600"
+                 />
+               </div>
                
                <button onClick={handleSaveSettings} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30 flex items-center justify-center space-x-2 hover:brightness-110 transition-all">
                  <Save className="w-5 h-5" />
-                 <span>Save Branding</span>
+                 <span>Save Settings</span>
                </button>
              </div>
            </div>

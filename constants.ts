@@ -6,8 +6,9 @@ export const MOCK_TENANT: Tenant = {
   name: 'NeoSports Arena',
   primaryColor: '#4f46e5',
   secondaryColor: '#ec4899',
-  logo: 'https://cdn-icons-png.flaticon.com/512/3309/3309991.png',
+  logo: 'https://cdn-icons-png.flaticon.com/512/1165/1165187.png', // Updated to a trophy/arena style icon
   backgroundImage: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop', 
+  currency: 'LKR',
   location: {
     lat: 34.0522,
     lng: -118.2437,

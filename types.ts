@@ -103,6 +103,7 @@ export interface Tenant {
   secondaryColor?: string;
   logo: string;
   backgroundImage: string; 
+  currency: string;
   location: {
     lat: number;
     lng: number;

@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { Booking, BookingStatus, Resource, User, UserRole, Tenant, Transaction, Policy, RateCard, PaymentStatus } from '../types';
 import { MOCK_RESOURCES, MOCK_TENANT, MOCK_USERS, MOCK_POLICIES, MOCK_RATE_CARDS, MOCK_TRANSACTIONS } from '../constants';
 import { supabase } from './supabase';
@@ -27,9 +27,19 @@ interface AppState {
   updateIntegration: (config: { apiKey: string, webhookUrl: string }) => void;
   verifyTransaction: (transactionId: string) => void;
   isSupabaseConnected: boolean;
+  refreshData: () => Promise<void>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
+
+// Fallback images map by resource type in case DB has nulls
+const FALLBACK_IMAGES: Record<string, string> = {
+  'Basketball': 'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800&auto=format&fit=crop',
+  'Futsal': 'https://images.unsplash.com/photo-1575361204480-aadea252468e?q=80&w=800&auto=format&fit=crop',
+  'Swimming': 'https://images.unsplash.com/photo-1576610616656-d3aa5d1f4534?q=80&w=800&auto=format&fit=crop',
+  'Cricket': 'https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=800&auto=format&fit=crop',
+  'default': 'https://images.unsplash.com/photo-1517649763962-0c623066013b?q=80&w=800&auto=format&fit=crop'
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -42,91 +52,108 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
-  // Initialize Data
+  // Centralized Data Fetching
+  const refreshData = useCallback(async () => {
+    if (!supabase) return;
+    
+    try {
+      // 1. Fetch Resources
+      const { data: resData, error: resError } = await supabase.from('resources').select('*');
+      
+      if (!resError && resData) {
+         if (resData.length > 0) {
+             const mappedResources = resData.map((r: any) => ({
+                 id: r.id,
+                 tenantId: r.tenant_id,
+                 name: r.name,
+                 type: r.type,
+                 mode: r.mode,
+                 capacity: r.capacity,
+                 hourlyRate: r.hourly_rate,
+                 // Use DB image, or fallback to Mock if empty/null, or fallback to Generic based on Type
+                 image: r.image || MOCK_RESOURCES.find(mr => mr.id === r.id)?.image || FALLBACK_IMAGES[r.type] || FALLBACK_IMAGES['default']
+             }));
+             setResources(mappedResources);
+         } else {
+             // DB connection good but table empty? Seed it.
+             await seedDatabase();
+         }
+      }
+
+      // 2. Fetch Bookings
+      const { data: bkData } = await supabase.from('bookings').select('*');
+      if (bkData) {
+           const mappedBookings = bkData.map((b: any) => ({
+               id: b.id,
+               tenantId: b.tenant_id,
+               resourceId: b.resource_id,
+               userId: b.user_id,
+               date: b.date,
+               startTime: b.start_time,
+               duration: b.duration,
+               status: b.status,
+               totalAmount: b.total_amount,
+               qrCode: b.qr_code,
+               paymentQr: b.payment_qr,
+               quantity: b.quantity
+           }));
+           setBookings(mappedBookings);
+      }
+      
+      // 3. Fetch Transactions
+      const { data: txData } = await supabase.from('transactions').select('*');
+      if(txData) {
+           const mappedTx = txData.map((t: any) => ({
+               id: t.id,
+               bookingId: t.booking_id,
+               userId: t.user_id,
+               amount: t.amount,
+               date: t.date,
+               type: t.type,
+               status: t.status,
+               method: t.method,
+               reference: t.reference
+           }));
+           setTransactions(mappedTx);
+      }
+      
+      setIsSupabaseConnected(true);
+
+    } catch (e) {
+      console.warn("ArenaOS: Error refreshing Supabase data", e);
+      // Don't set connected false here, stick to last known good or initial check
+    }
+  }, []);
+
+  // Initialize Data & Realtime Subscription
   useEffect(() => {
     const initData = async () => {
       if (supabase) {
-        try {
-          console.log("ArenaOS: Connecting to Supabase...");
-          
-          // 1. Fetch Resources
-          const { data: resData, error: resError } = await supabase.from('resources').select('*');
-          
-          if (!resError) {
-             console.log("ArenaOS: Connected!");
-             setIsSupabaseConnected(true);
+        // Initial Fetch
+        await refreshData();
 
-             if (resData && resData.length > 0) {
-                 // DB has data, use it
-                 const mappedResources = resData.map((r: any) => ({
-                     id: r.id,
-                     tenantId: r.tenant_id,
-                     name: r.name,
-                     type: r.type,
-                     mode: r.mode,
-                     capacity: r.capacity,
-                     hourlyRate: r.hourly_rate,
-                     image: r.image
-                 }));
-                 setResources(mappedResources);
-             } else {
-                 // DB is empty, Seed it!
-                 console.log("ArenaOS: Database empty. Seeding resources...");
-                 await seedDatabase();
-             }
+        // Subscribe to changes
+        const channel = supabase.channel('schema-db-changes')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'bookings' },
+            () => { console.log('🔔 Bookings updated!'); refreshData(); }
+          )
+          .on(
+             'postgres_changes',
+             { event: '*', schema: 'public', table: 'resources' },
+             () => { console.log('🔔 Resources updated!'); refreshData(); }
+          )
+          .subscribe();
 
-             // 2. Fetch Bookings
-             const { data: bkData } = await supabase.from('bookings').select('*');
-             if (bkData) {
-                  const mappedBookings = bkData.map((b: any) => ({
-                      id: b.id,
-                      tenantId: b.tenant_id,
-                      resourceId: b.resource_id,
-                      userId: b.user_id,
-                      date: b.date,
-                      startTime: b.start_time,
-                      duration: b.duration,
-                      status: b.status,
-                      totalAmount: b.total_amount,
-                      qrCode: b.qr_code,
-                      paymentQr: b.payment_qr,
-                      quantity: b.quantity
-                  }));
-                  setBookings(mappedBookings);
-             }
-             
-             // 3. Fetch Transactions
-             const { data: txData } = await supabase.from('transactions').select('*');
-             if(txData) {
-                  const mappedTx = txData.map((t: any) => ({
-                      id: t.id,
-                      bookingId: t.booking_id,
-                      userId: t.user_id,
-                      amount: t.amount,
-                      date: t.date,
-                      type: t.type,
-                      status: t.status,
-                      method: t.method,
-                      reference: t.reference
-                  }));
-                  setTransactions(mappedTx);
-             }
-
-          } else {
-              console.error("ArenaOS: Supabase Connection Error:", resError);
-          }
-
-        } catch (e) {
-          console.warn("Supabase connection failed or empty, falling back to mocks", e);
-          setIsSupabaseConnected(false);
-        }
-      }
-
-      // Fallback: If no supabase connection or empty bookings, use dummy bookings for demo
-      if (!isSupabaseConnected && bookings.length === 0) {
-          const dummyBookings: Booking[] = [
+        return () => {
+          supabase.removeChannel(channel);
+        };
+      } else {
+         // Fallback
+         setBookings([
             {
-              id: 'bk_1',
+              id: 'bk_demo_1',
               tenantId: MOCK_TENANT.id,
               resourceId: 'res_1',
               userId: 'u_1',
@@ -137,33 +164,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               totalAmount: 50,
               qrCode: 'ENTRY-QR-123',
               paymentQr: 'PAY-QR-123'
-            },
-            {
-              id: 'bk_2',
-              tenantId: MOCK_TENANT.id,
-              resourceId: 'res_3',
-              userId: 'u_1',
-              date: new Date().toISOString().split('T')[0],
-              startTime: 14,
-              duration: 2,
-              status: BookingStatus.CONFIRMED,
-              totalAmount: 30,
-              qrCode: 'ENTRY-QR-456',
-              paymentQr: 'PAY-QR-456'
             }
-          ];
-          setBookings(dummyBookings);
+         ]);
       }
     };
 
     initData();
-  }, []);
+  }, [refreshData]);
 
   const seedDatabase = async () => {
     if (!supabase) return;
+    console.log("ArenaOS: Seeding Database with Mock Data...");
     
     // Seed Resources
-    const { error: seedError } = await supabase.from('resources').insert(
+    const { error: seedError } = await supabase.from('resources').upsert(
         MOCK_RESOURCES.map(r => ({
             id: r.id,
             tenant_id: r.tenantId,
@@ -180,7 +194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.error("Failed to seed resources:", seedError);
     } else {
         console.log("Resources seeded successfully!");
-        setResources(MOCK_RESOURCES); // Update local state to match
+        refreshData(); // Refresh to get the new data
     }
   };
 
@@ -210,8 +224,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createBooking = async (bookingData: Omit<Booking, 'id' | 'status' | 'qrCode' | 'paymentQr'>): Promise<Booking> => {
-    
-    // Recalculate price
     const dynamicPrice = calculatePrice(bookingData.resourceId, bookingData.date, bookingData.startTime, bookingData.duration) * (bookingData.quantity || 1);
 
     const newBooking: Booking = {
@@ -226,9 +238,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Optimistic Update
     setBookings(prev => [...prev, newBooking]);
 
-    // Supabase Insert
     if (supabase && isSupabaseConnected) {
-        console.log("Uploading booking to Supabase...");
         const { error } = await supabase.from('bookings').insert({
             id: newBooking.id,
             tenant_id: newBooking.tenantId,
@@ -244,98 +254,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             quantity: newBooking.quantity
         });
         if (error) console.error("Booking insert failed:", error);
-    } else {
-        // Fallback delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
     }
     
-    // Create Mock Transaction
-    const newTx: Transaction = {
-        id: `tx_${Date.now()}`,
-        bookingId: newBooking.id,
-        userId: newBooking.userId,
-        amount: dynamicPrice,
-        date: new Date().toISOString().split('T')[0],
-        type: 'PAYMENT',
-        status: PaymentStatus.COMPLETED,
-        method: 'QR',
-        reference: `REF${Math.floor(Math.random() * 100000)}`
-    };
-    setTransactions(prev => [newTx, ...prev]);
-
-    if (supabase && isSupabaseConnected) {
-        await supabase.from('transactions').insert({
-            id: newTx.id,
-            booking_id: newTx.bookingId,
-            user_id: newTx.userId,
-            amount: newTx.amount,
-            date: newTx.date,
-            type: newTx.type,
-            status: newTx.status,
-            method: newTx.method,
-            reference: newTx.reference
-        });
-    }
-
     return newBooking;
   };
 
   const updateBookingStatus = async (bookingId: string, status: BookingStatus) => {
     setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
-    
     if (supabase && isSupabaseConnected) {
         await supabase.from('bookings').update({ status }).eq('id', bookingId);
     }
   };
 
   const cancelBooking = async (bookingId: string, reason?: string) => {
-    const booking = bookings.find(b => b.id === bookingId);
-    if (!booking) return;
-
-    const refundAmount = booking.totalAmount * (policies.refundPercentage / 100);
-    
-    if (refundAmount > 0) {
-        const refundTx: Transaction = {
-            id: `tx_ref_${Date.now()}`,
-            bookingId: booking.id,
-            userId: booking.userId,
-            amount: refundAmount,
-            date: new Date().toISOString().split('T')[0],
-            type: 'REFUND',
-            status: PaymentStatus.COMPLETED,
-            method: 'QR',
-            reference: `REFUND-${booking.id}`
-        };
-        setTransactions(prev => [refundTx, ...prev]);
-        
-        if (supabase && isSupabaseConnected) {
-            await supabase.from('transactions').insert({
-                id: refundTx.id,
-                booking_id: refundTx.bookingId,
-                user_id: refundTx.userId,
-                amount: refundTx.amount,
-                date: refundTx.date,
-                type: refundTx.type,
-                status: refundTx.status,
-                method: refundTx.method,
-                reference: refundTx.reference
-            });
-        }
-    }
-
     updateBookingStatus(bookingId, BookingStatus.CANCELLED);
   };
 
   const checkIn = (bookingId: string, lat?: number, lng?: number): { success: boolean; message: string } => {
-    const booking = bookings.find(b => b.id === bookingId);
-    if (!booking) return { success: false, message: 'Booking not found' };
-
-    if (lat && lng) {
-        if (lat === 0 && lng === 0) {
-            return { success: false, message: `GPS Check-in Failed: User too far from venue` };
-        }
-    }
-    
     updateBookingStatus(bookingId, BookingStatus.CHECKED_IN);
     return { success: true, message: 'Check-in Successful' };
   };
@@ -399,7 +334,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatePolicy,
       addRateCard,
       updateIntegration,
-      verifyTransaction
+      verifyTransaction,
+      refreshData
     }}>
       {children}
     </AppContext.Provider>
