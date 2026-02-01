@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Booking, BookingStatus, Resource, User, UserRole, Tenant, Transaction, Policy, RateCard, PaymentStatus } from '../types';
 import { MOCK_RESOURCES, MOCK_TENANT, MOCK_USERS, MOCK_POLICIES, MOCK_RATE_CARDS, MOCK_TRANSACTIONS } from '../constants';
+import { supabase } from './supabase';
 
 interface AppState {
   currentUser: User | null;
@@ -25,6 +26,7 @@ interface AppState {
   addRateCard: (card: RateCard) => void;
   updateIntegration: (config: { apiKey: string, webhookUrl: string }) => void;
   verifyTransaction: (transactionId: string) => void;
+  isSupabaseConnected: boolean;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -38,39 +40,149 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [policies, setPolicies] = useState<Policy>(MOCK_POLICIES);
   const [rateCards, setRateCards] = useState<RateCard[]>(MOCK_RATE_CARDS);
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
-  // Initialize with some dummy bookings for demo
+  // Initialize Data
   useEffect(() => {
-    const dummyBookings: Booking[] = [
-      {
-        id: 'bk_1',
-        tenantId: MOCK_TENANT.id,
-        resourceId: 'res_1',
-        userId: 'u_1',
-        date: new Date().toISOString().split('T')[0],
-        startTime: 10,
-        duration: 1,
-        status: BookingStatus.CONFIRMED,
-        totalAmount: 50,
-        qrCode: 'ENTRY-QR-123',
-        paymentQr: 'PAY-QR-123'
-      },
-      {
-        id: 'bk_2',
-        tenantId: MOCK_TENANT.id,
-        resourceId: 'res_3',
-        userId: 'u_1',
-        date: new Date().toISOString().split('T')[0],
-        startTime: 14,
-        duration: 2,
-        status: BookingStatus.CONFIRMED,
-        totalAmount: 30,
-        qrCode: 'ENTRY-QR-456',
-        paymentQr: 'PAY-QR-456'
+    const initData = async () => {
+      if (supabase) {
+        try {
+          console.log("ArenaOS: Connecting to Supabase...");
+          
+          // 1. Fetch Resources
+          const { data: resData, error: resError } = await supabase.from('resources').select('*');
+          
+          if (!resError) {
+             console.log("ArenaOS: Connected!");
+             setIsSupabaseConnected(true);
+
+             if (resData && resData.length > 0) {
+                 // DB has data, use it
+                 const mappedResources = resData.map((r: any) => ({
+                     id: r.id,
+                     tenantId: r.tenant_id,
+                     name: r.name,
+                     type: r.type,
+                     mode: r.mode,
+                     capacity: r.capacity,
+                     hourlyRate: r.hourly_rate,
+                     image: r.image
+                 }));
+                 setResources(mappedResources);
+             } else {
+                 // DB is empty, Seed it!
+                 console.log("ArenaOS: Database empty. Seeding resources...");
+                 await seedDatabase();
+             }
+
+             // 2. Fetch Bookings
+             const { data: bkData } = await supabase.from('bookings').select('*');
+             if (bkData) {
+                  const mappedBookings = bkData.map((b: any) => ({
+                      id: b.id,
+                      tenantId: b.tenant_id,
+                      resourceId: b.resource_id,
+                      userId: b.user_id,
+                      date: b.date,
+                      startTime: b.start_time,
+                      duration: b.duration,
+                      status: b.status,
+                      totalAmount: b.total_amount,
+                      qrCode: b.qr_code,
+                      paymentQr: b.payment_qr,
+                      quantity: b.quantity
+                  }));
+                  setBookings(mappedBookings);
+             }
+             
+             // 3. Fetch Transactions
+             const { data: txData } = await supabase.from('transactions').select('*');
+             if(txData) {
+                  const mappedTx = txData.map((t: any) => ({
+                      id: t.id,
+                      bookingId: t.booking_id,
+                      userId: t.user_id,
+                      amount: t.amount,
+                      date: t.date,
+                      type: t.type,
+                      status: t.status,
+                      method: t.method,
+                      reference: t.reference
+                  }));
+                  setTransactions(mappedTx);
+             }
+
+          } else {
+              console.error("ArenaOS: Supabase Connection Error:", resError);
+          }
+
+        } catch (e) {
+          console.warn("Supabase connection failed or empty, falling back to mocks", e);
+          setIsSupabaseConnected(false);
+        }
       }
-    ];
-    setBookings(dummyBookings);
+
+      // Fallback: If no supabase connection or empty bookings, use dummy bookings for demo
+      if (!isSupabaseConnected && bookings.length === 0) {
+          const dummyBookings: Booking[] = [
+            {
+              id: 'bk_1',
+              tenantId: MOCK_TENANT.id,
+              resourceId: 'res_1',
+              userId: 'u_1',
+              date: new Date().toISOString().split('T')[0],
+              startTime: 10,
+              duration: 1,
+              status: BookingStatus.CONFIRMED,
+              totalAmount: 50,
+              qrCode: 'ENTRY-QR-123',
+              paymentQr: 'PAY-QR-123'
+            },
+            {
+              id: 'bk_2',
+              tenantId: MOCK_TENANT.id,
+              resourceId: 'res_3',
+              userId: 'u_1',
+              date: new Date().toISOString().split('T')[0],
+              startTime: 14,
+              duration: 2,
+              status: BookingStatus.CONFIRMED,
+              totalAmount: 30,
+              qrCode: 'ENTRY-QR-456',
+              paymentQr: 'PAY-QR-456'
+            }
+          ];
+          setBookings(dummyBookings);
+      }
+    };
+
+    initData();
   }, []);
+
+  const seedDatabase = async () => {
+    if (!supabase) return;
+    
+    // Seed Resources
+    const { error: seedError } = await supabase.from('resources').insert(
+        MOCK_RESOURCES.map(r => ({
+            id: r.id,
+            tenant_id: r.tenantId,
+            name: r.name,
+            type: r.type,
+            mode: r.mode,
+            capacity: r.capacity,
+            hourly_rate: r.hourlyRate,
+            image: r.image
+        }))
+    );
+    
+    if (seedError) {
+        console.error("Failed to seed resources:", seedError);
+    } else {
+        console.log("Resources seeded successfully!");
+        setResources(MOCK_RESOURCES); // Update local state to match
+    }
+  };
 
   const login = (role: UserRole) => {
     const user = MOCK_USERS.find(u => u.role === role);
@@ -86,14 +198,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const calculatePrice = (resourceId: string, date: string, hour: number, duration: number): number => {
       const resource = resources.find(r => r.id === resourceId);
       if (!resource) return 0;
-
-      // Find applicable rate card
       const rateCard = rateCards.find(rc => rc.resourceType === resource.type);
-      
       let rate = resource.hourlyRate;
       if (rateCard) {
           rate = rateCard.baseRate;
-          // Apply Peak Pricing
           if (rateCard.peakHours.includes(hour)) {
               rate = rateCard.peakRate;
           }
@@ -102,22 +210,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const createBooking = async (bookingData: Omit<Booking, 'id' | 'status' | 'qrCode' | 'paymentQr'>): Promise<Booking> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Recalculate price using Rate Engine
+    
+    // Recalculate price
     const dynamicPrice = calculatePrice(bookingData.resourceId, bookingData.date, bookingData.startTime, bookingData.duration) * (bookingData.quantity || 1);
 
     const newBooking: Booking = {
       ...bookingData,
       id: `bk_${Date.now()}`,
-      status: BookingStatus.CONFIRMED, // In real app: PENDING_PAYMENT
+      status: BookingStatus.CONFIRMED,
       qrCode: `ENTRY-${Date.now()}`,
       paymentQr: `PAY-${Date.now()}`,
       totalAmount: dynamicPrice
     };
 
+    // Optimistic Update
     setBookings(prev => [...prev, newBooking]);
+
+    // Supabase Insert
+    if (supabase && isSupabaseConnected) {
+        console.log("Uploading booking to Supabase...");
+        const { error } = await supabase.from('bookings').insert({
+            id: newBooking.id,
+            tenant_id: newBooking.tenantId,
+            resource_id: newBooking.resourceId,
+            user_id: newBooking.userId,
+            date: newBooking.date,
+            start_time: newBooking.startTime,
+            duration: newBooking.duration,
+            status: newBooking.status,
+            total_amount: newBooking.totalAmount,
+            qr_code: newBooking.qrCode,
+            payment_qr: newBooking.paymentQr,
+            quantity: newBooking.quantity
+        });
+        if (error) console.error("Booking insert failed:", error);
+    } else {
+        // Fallback delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+    }
     
     // Create Mock Transaction
     const newTx: Transaction = {
@@ -133,21 +263,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setTransactions(prev => [newTx, ...prev]);
 
+    if (supabase && isSupabaseConnected) {
+        await supabase.from('transactions').insert({
+            id: newTx.id,
+            booking_id: newTx.bookingId,
+            user_id: newTx.userId,
+            amount: newTx.amount,
+            date: newTx.date,
+            type: newTx.type,
+            status: newTx.status,
+            method: newTx.method,
+            reference: newTx.reference
+        });
+    }
+
     return newBooking;
   };
 
-  const updateBookingStatus = (bookingId: string, status: BookingStatus) => {
+  const updateBookingStatus = async (bookingId: string, status: BookingStatus) => {
     setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status } : b));
+    
+    if (supabase && isSupabaseConnected) {
+        await supabase.from('bookings').update({ status }).eq('id', bookingId);
+    }
   };
 
-  const cancelBooking = (bookingId: string, reason?: string) => {
+  const cancelBooking = async (bookingId: string, reason?: string) => {
     const booking = bookings.find(b => b.id === bookingId);
     if (!booking) return;
 
-    // Policy Check: Cancel Window
-    // (Simplification: assuming always valid for demo)
-    
-    // Refund Logic
     const refundAmount = booking.totalAmount * (policies.refundPercentage / 100);
     
     if (refundAmount > 0) {
@@ -159,10 +303,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             date: new Date().toISOString().split('T')[0],
             type: 'REFUND',
             status: PaymentStatus.COMPLETED,
-            method: 'QR', // Original method
+            method: 'QR',
             reference: `REFUND-${booking.id}`
         };
         setTransactions(prev => [refundTx, ...prev]);
+        
+        if (supabase && isSupabaseConnected) {
+            await supabase.from('transactions').insert({
+                id: refundTx.id,
+                booking_id: refundTx.bookingId,
+                user_id: refundTx.userId,
+                amount: refundTx.amount,
+                date: refundTx.date,
+                type: refundTx.type,
+                status: refundTx.status,
+                method: refundTx.method,
+                reference: refundTx.reference
+            });
+        }
     }
 
     updateBookingStatus(bookingId, BookingStatus.CANCELLED);
@@ -172,14 +330,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const booking = bookings.find(b => b.id === bookingId);
     if (!booking) return { success: false, message: 'Booking not found' };
 
-    // GPS Validation (Mock)
     if (lat && lng) {
-        // Calculate distance (very rough approximation for demo)
-        const dist = Math.sqrt(Math.pow(lat - tenant.location.lat, 2) + Math.pow(lng - tenant.location.lng, 2));
-        // let's say 0.01 degrees is roughly 1km. policy radius is in meters.
-        // For simulation, if lat is provided, we assume it's close enough unless it's 0,0
         if (lat === 0 && lng === 0) {
-            return { success: false, message: `GPS Check-in Failed: User too far from venue (${policies.gpsRadiusMeters}m radius)` };
+            return { success: false, message: `GPS Check-in Failed: User too far from venue` };
         }
     }
     
@@ -191,8 +344,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTenant(prev => ({ ...prev, ...branding }));
   };
 
-  const addResource = (resource: Resource) => {
+  const addResource = async (resource: Resource) => {
     setResources(prev => [...prev, resource]);
+    if (supabase && isSupabaseConnected) {
+        await supabase.from('resources').insert({
+            id: resource.id,
+            tenant_id: resource.tenantId,
+            name: resource.name,
+            type: resource.type,
+            mode: resource.mode,
+            capacity: resource.capacity,
+            hourly_rate: resource.hourlyRate,
+            image: resource.image
+        });
+    }
   };
 
   const updatePolicy = (policy: Partial<Policy>) => {
@@ -221,6 +386,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       policies,
       rateCards,
       theme,
+      isSupabaseConnected,
       login,
       logout,
       toggleTheme,
