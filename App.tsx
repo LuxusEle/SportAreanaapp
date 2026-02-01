@@ -7,34 +7,49 @@ import { PlayerDashboard } from './components/PlayerDashboard';
 import { StaffDashboard } from './components/StaffDashboard';
 import { AdminDashboard } from './components/AdminDashboard';
 import { TrainerDashboard } from './components/TrainerDashboard';
-import { User, Shield, Briefcase, Dumbbell } from 'lucide-react';
+import { User, Shield, Briefcase, Dumbbell, Sun, Moon } from 'lucide-react';
 
 const LoginScreen: React.FC = () => {
-  const { login, tenant } = useApp();
+  const { login, tenant, theme, toggleTheme } = useApp();
+
+  // Apply dark mode class for Login Screen independent of Layout
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
 
   return (
-    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-500">
       {/* Background decoration */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-600 blur-[120px] opacity-30"></div>
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-500 blur-[120px] opacity-30"></div>
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-indigo-400 dark:bg-indigo-600 blur-[120px] opacity-20 dark:opacity-30"></div>
+        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-300 dark:bg-blue-500 blur-[120px] opacity-20 dark:opacity-30"></div>
       </div>
 
-      <div className="z-10 w-full max-w-md bg-white/10 backdrop-blur-lg border border-white/20 p-8 rounded-2xl shadow-2xl">
+      <div className="absolute top-6 right-6 z-20">
+         <button onClick={toggleTheme} className="p-3 bg-white dark:bg-white/10 rounded-full shadow-lg text-gray-700 dark:text-white hover:scale-110 transition-transform">
+            {theme === 'dark' ? <Sun className="w-6 h-6"/> : <Moon className="w-6 h-6"/>}
+         </button>
+      </div>
+
+      <div className="z-10 w-full max-w-md bg-white/70 dark:bg-white/10 backdrop-blur-lg border border-white/40 dark:border-white/20 p-8 rounded-2xl shadow-deep-light dark:shadow-deep-dark">
         <div className="text-center mb-8">
            <div className="w-16 h-16 bg-indigo-600 rounded-xl mx-auto flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/50">
              <span className="text-2xl font-bold text-white">OS</span>
            </div>
-           <h1 className="text-3xl font-bold text-white mb-2">{tenant.name}</h1>
-           <p className="text-gray-300">Venue Operating System</p>
+           <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">{tenant.name}</h1>
+           <p className="text-gray-600 dark:text-gray-300">Venue Operating System</p>
         </div>
 
         <div className="space-y-4">
-          <p className="text-center text-xs text-gray-400 uppercase tracking-widest mb-4">Select User Persona</p>
+          <p className="text-center text-xs text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4">Select User Persona</p>
           
           <button 
             onClick={() => login(UserRole.PLAYER)}
-            className="w-full bg-white group hover:bg-indigo-50 p-4 rounded-xl transition-all duration-200 flex items-center justify-between"
+            className="w-full bg-white group hover:bg-indigo-50 p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between border border-gray-100 dark:border-transparent"
           >
             <div className="flex items-center space-x-4">
               <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-indigo-100 transition-colors">
@@ -50,7 +65,7 @@ const LoginScreen: React.FC = () => {
 
           <button 
             onClick={() => login(UserRole.STAFF)}
-            className="w-full bg-white group hover:bg-green-50 p-4 rounded-xl transition-all duration-200 flex items-center justify-between"
+            className="w-full bg-white group hover:bg-green-50 p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between border border-gray-100 dark:border-transparent"
           >
              <div className="flex items-center space-x-4">
               <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-green-100 transition-colors">
@@ -66,7 +81,7 @@ const LoginScreen: React.FC = () => {
 
           <button 
             onClick={() => login(UserRole.TRAINER)}
-            className="w-full bg-white group hover:bg-orange-50 p-4 rounded-xl transition-all duration-200 flex items-center justify-between"
+            className="w-full bg-white group hover:bg-orange-50 p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between border border-gray-100 dark:border-transparent"
           >
              <div className="flex items-center space-x-4">
               <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-orange-100 transition-colors">
@@ -82,7 +97,7 @@ const LoginScreen: React.FC = () => {
 
           <button 
             onClick={() => login(UserRole.ADMIN)}
-            className="w-full bg-white group hover:bg-purple-50 p-4 rounded-xl transition-all duration-200 flex items-center justify-between"
+            className="w-full bg-white group hover:bg-purple-50 p-4 rounded-xl shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-between border border-gray-100 dark:border-transparent"
           >
              <div className="flex items-center space-x-4">
               <div className="bg-gray-100 p-2 rounded-lg group-hover:bg-purple-100 transition-colors">
@@ -97,7 +112,7 @@ const LoginScreen: React.FC = () => {
           </button>
         </div>
         
-        <div className="mt-8 text-center text-gray-500 text-xs">
+        <div className="mt-8 text-center text-gray-500 dark:text-gray-400 text-xs">
           <p>Powered by ArenaOS &copy; 2024</p>
         </div>
       </div>
@@ -136,7 +151,7 @@ const App: React.FC = () => {
         return <TrainerDashboard activeTab={activeTab} navigateTo={setActiveTab} />;
 
       case UserRole.PLAYER:
-        if (activeTab === 'profile') return <div className="p-8 text-center bg-white rounded-xl shadow-sm"><h2 className="text-xl font-bold">Profile</h2><p className="text-gray-500">User profile settings would go here.</p></div>;
+        if (activeTab === 'profile') return <div className="p-8 text-center bg-white dark:bg-gray-800 rounded-xl shadow-sm"><h2 className="text-xl font-bold dark:text-white">Profile</h2><p className="text-gray-500 dark:text-gray-400">User profile settings would go here.</p></div>;
         return <PlayerDashboard activeTab={activeTab} navigateTo={setActiveTab} />;
       
       default:

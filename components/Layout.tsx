@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useApp } from '../services/store';
 import { 
   LogOut, 
@@ -7,7 +7,6 @@ import {
   Calendar, 
   Settings, 
   Users, 
-  Activity, 
   QrCode,
   Menu,
   X,
@@ -18,7 +17,9 @@ import {
   FileText,
   ClipboardList,
   Clock,
-  DollarSign
+  DollarSign,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { UserRole } from '../types';
 
@@ -29,27 +30,41 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) => {
-  const { currentUser, logout, tenant } = useApp();
+  const { currentUser, logout, tenant, theme, toggleTheme } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
-  // Helper for active button styling
+  // Apply dark mode class to html element
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  // Helper for active button styling with Colored Underglow
   const activeBtn = (color: string = 'indigo') => {
-    const map: Record<string, string> = {
-      emerald: "bg-emerald-600 ring-emerald-300/30",
-      orange: "bg-orange-600 ring-orange-300/30",
-      red: "bg-red-600 ring-red-300/30",
-      violet: "bg-violet-600 ring-violet-300/30",
-      blue: "bg-blue-600 ring-blue-300/30",
-      indigo: "bg-indigo-600 ring-indigo-300/30",
-      slate: "bg-slate-700 ring-white/10",
+    // Map base color to specific styling
+    const map: Record<string, { bg: string, ring: string, glow: string }> = {
+      emerald: { bg: "bg-emerald-600", ring: "ring-emerald-300/30", glow: "glow-emerald" },
+      orange:  { bg: "bg-orange-600",  ring: "ring-orange-300/30",  glow: "glow-orange" },
+      red:     { bg: "bg-red-600",     ring: "ring-red-300/30",     glow: "glow-red" },
+      violet:  { bg: "bg-violet-600",  ring: "ring-violet-300/30",  glow: "glow-violet" },
+      blue:    { bg: "bg-blue-600",    ring: "ring-blue-300/30",    glow: "glow-blue" },
+      indigo:  { bg: "bg-indigo-600",  ring: "ring-indigo-300/30",  glow: "glow-indigo" },
+      slate:   { bg: "bg-slate-700",   ring: "ring-white/10",       glow: "glow-slate" },
+      gray:    { bg: "bg-gray-600",    ring: "ring-white/10",       glow: "glow-slate" }, // fallback to slate glow
     };
 
     const style = map[color] || map['indigo'];
 
-    // Warm glow shadow as requested for "dark mode" aesthetic
-    const glow = "shadow-[0_10px_22px_rgba(0,0,0,0.4),0_0_26px_rgba(255,214,102,0.28),0_0_10px_rgba(255,244,230,0.18)]";
-
-    return `transform -translate-y-1 text-white ring-1 ${style} ${glow}`;
+    // Combine styles:
+    // 1. Transform: Lift the button up significantly (-translate-y-1.5 = 6px)
+    // 2. Text: White
+    // 3. Ring: Subtle inner ring for crisp edges
+    // 4. Background: Solid color
+    // 5. Shadow: Custom colored directional underglow from index.html
+    return `transform -translate-y-1.5 text-white ring-1 ${style.ring} ${style.bg} ${style.glow}`;
   };
 
   const getNavItems = () => {
@@ -92,27 +107,32 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   };
 
   return (
-    <div className="relative min-h-screen w-full overflow-hidden flex flex-col md:flex-row">
+    <div className="relative min-h-screen w-full overflow-hidden flex flex-col md:flex-row bg-gray-200 dark:bg-black transition-colors duration-500">
       {/* 
           DYNAMIC BACKGROUND
-          This is the key visual element controlled by the Admin Settings 
+          Light: Very bright overlay. Dark: Almost black overlay.
       */}
       <div 
         className="absolute inset-0 z-0 bg-cover bg-center transition-all duration-1000 ease-in-out"
         style={{ backgroundImage: `url(${tenant.backgroundImage})` }}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-white/10 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-white/70 dark:bg-black/80 backdrop-blur-[2px] transition-colors duration-500" />
       </div>
 
       {/* Mobile Header */}
-      <div className="md:hidden glass-panel border-b border-white/20 p-4 flex justify-between items-center sticky top-0 z-20 relative m-4 rounded-xl">
+      <div className="md:hidden glass-panel border-b border-gray-200 dark:border-white/10 p-4 flex justify-between items-center sticky top-0 z-20 relative m-4 rounded-xl shadow-depth-light dark:shadow-depth-dark">
         <div className="flex items-center space-x-2">
-           <img src={tenant.logo} alt="Logo" className="w-8 h-8 rounded bg-white/50 p-1" />
-           <span className="font-bold text-gray-900">{tenant.name}</span>
+           <img src={tenant.logo} alt="Logo" className="w-8 h-8 rounded bg-gray-100 dark:bg-white/10 p-1" />
+           <span className="font-bold text-gray-900 dark:text-white">{tenant.name}</span>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <div className="flex items-center space-x-4">
+            <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-gray-600 dark:text-gray-300 transition-colors">
+                {theme === 'dark' ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>}
+            </button>
+            <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-900 dark:text-white">
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+        </div>
       </div>
 
       {/* GLASS SIDEBAR */}
@@ -121,22 +141,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
         md:relative md:translate-x-0 md:flex md:flex-col
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
-        {/* Sidebar Container with Glass effect */}
-        <div className="h-full glass-panel rounded-3xl flex flex-col shadow-glass overflow-hidden relative">
+        {/* Sidebar Container with DEEP Shadow */}
+        <div className="h-full glass-panel rounded-3xl flex flex-col shadow-depth-light dark:shadow-depth-dark overflow-hidden relative transition-all duration-300">
           
           {/* Logo Section */}
-          <div className="p-8 flex flex-col items-center border-b border-white/30">
-            <div className="w-20 h-20 rounded-2xl bg-white/40 p-2 shadow-inner mb-4 flex items-center justify-center">
-              <img src={tenant.logo} alt="Logo" className="w-full h-full object-contain" />
+          <div className="p-8 flex flex-col items-center border-b border-gray-200 dark:border-white/10">
+            <div className="w-20 h-20 rounded-2xl bg-white/50 dark:bg-white/5 p-2 shadow-inner mb-4 flex items-center justify-center border border-white/20 dark:border-white/10">
+              <img src={tenant.logo} alt="Logo" className="w-full h-full object-contain opacity-90" />
             </div>
-            <h1 className="font-bold text-xl leading-tight text-center text-gray-800 tracking-tight">{tenant.name}</h1>
-            <span className="text-xs font-bold text-indigo-600 bg-indigo-50/50 px-3 py-1 rounded-full mt-2 uppercase tracking-widest">
+            <h1 className="font-bold text-xl leading-tight text-center text-gray-900 dark:text-white tracking-tight">{tenant.name}</h1>
+            <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-900/50 border border-indigo-200 dark:border-indigo-500/30 px-3 py-1 rounded-full mt-2 uppercase tracking-widest">
               {currentUser?.role}
             </span>
           </div>
 
           {/* Nav Items */}
-          <nav className="flex-1 space-y-2 p-4 overflow-y-auto no-scrollbar">
+          <nav className="flex-1 space-y-3 p-4 overflow-y-auto no-scrollbar">
             {getNavItems().map((item) => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -151,29 +171,41 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                     w-full flex items-center space-x-4 px-5 py-4 rounded-2xl transition-all duration-300 group relative overflow-hidden text-left
                     ${isActive 
                       ? activeBtn(item.color)
-                      : 'hover:bg-white/40 text-gray-600 hover:text-gray-900'
+                      : 'hover:bg-white/60 dark:hover:bg-white/5 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:pl-6 hover:shadow-md'
                     }
                   `}
                 >
-                  <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'text-white scale-110' : 'group-hover:scale-110'}`} />
-                  <span className={`relative z-10 font-semibold ${isActive ? 'text-white' : ''}`}>{item.label}</span>
+                  <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'text-white scale-110' : 'group-hover:scale-110 opacity-70 group-hover:opacity-100'}`} />
+                  <span className={`relative z-10 font-semibold transition-colors ${isActive ? 'text-white' : ''}`}>{item.label}</span>
                 </button>
               );
             })}
           </nav>
 
           {/* User Profile Footer */}
-          <div className="p-4 border-t border-white/30 bg-white/20">
-            <div className="flex items-center space-x-3 mb-4 px-2 p-2 rounded-xl bg-white/30 backdrop-blur-sm">
-              <img src={currentUser?.avatar} className="w-10 h-10 rounded-full border-2 border-white shadow-sm" alt="User" />
+          <div className="p-4 border-t border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
+            
+            {/* Theme Toggle (Desktop Position) */}
+            <div className="hidden md:flex justify-end mb-4 px-2">
+                 <button 
+                    onClick={toggleTheme}
+                    className="p-2 rounded-xl bg-white/50 dark:bg-black/20 text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-white transition-colors border border-transparent hover:border-gray-200 dark:hover:border-white/10 shadow-sm"
+                    title="Toggle Theme"
+                 >
+                    {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                 </button>
+            </div>
+
+            <div className="flex items-center space-x-3 mb-4 px-2 p-2 rounded-xl bg-white/40 dark:bg-white/5 backdrop-blur-sm border border-white/20 dark:border-white/5">
+              <img src={currentUser?.avatar} className="w-10 h-10 rounded-full border border-white/40 dark:border-white/20 shadow-sm" alt="User" />
               <div className="flex-1 overflow-hidden">
-                <p className="text-sm font-bold truncate text-gray-800">{currentUser?.name}</p>
+                <p className="text-sm font-bold truncate text-gray-800 dark:text-gray-200">{currentUser?.name}</p>
                 <p className="text-xs text-gray-500 truncate font-medium">{currentUser?.email}</p>
               </div>
             </div>
             <button 
               onClick={logout}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-3 text-red-600 hover:bg-red-50/80 rounded-xl transition-colors font-medium text-sm"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-700 dark:hover:text-red-300 rounded-xl transition-colors font-medium text-sm"
             >
               <LogOut className="w-4 h-4" />
               <span>Sign Out</span>
@@ -184,24 +216,24 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
 
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 h-[calc(100vh)] md:h-screen p-4 md:p-6 overflow-hidden">
-        {/* Content Container - The "Paper" floating on the background */}
-        <div className="h-full w-full glass-panel rounded-3xl shadow-2xl overflow-y-auto relative no-scrollbar flex flex-col">
+        {/* Content Container - DEEP SHADOW APPLIED HERE */}
+        <div className="h-full w-full glass-panel rounded-3xl shadow-depth-light dark:shadow-depth-dark overflow-y-auto relative custom-scrollbar flex flex-col transition-all duration-300">
           {/* Header area inside content for context */}
-          <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md p-6 border-b border-white/40 flex justify-between items-center">
+          <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-6 border-b border-gray-200 dark:border-white/10 flex justify-between items-center transition-colors duration-300 shadow-sm">
              <div>
-               <h2 className="text-2xl font-extrabold text-gray-800 tracking-tight capitalize">
+               <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight capitalize">
                  {activeTab.replace('-', ' ')}
                </h2>
-               <p className="text-sm text-gray-500 font-medium">Welcome back, {currentUser?.name.split(' ')[0]}</p>
+               <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Welcome back, {currentUser?.name.split(' ')[0]}</p>
              </div>
              
              {/* Dynamic Date/Status Widget */}
              <div className="hidden md:flex items-center space-x-4">
-                <div className="px-4 py-2 bg-white rounded-xl shadow-sm border border-gray-100 flex items-center space-x-2">
-                   <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                   <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">System Online</span>
+                <div className="px-4 py-2 bg-white dark:bg-gray-800/80 rounded-xl shadow-card-light dark:shadow-card-dark border border-gray-100 dark:border-white/5 flex items-center space-x-2">
+                   <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
+                   <span className="text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">System Online</span>
                 </div>
-                <div className="px-4 py-2 bg-indigo-500 text-white rounded-xl shadow-neon shadow-indigo-500/30 flex items-center space-x-2 font-bold text-sm">
+                <div className="px-4 py-2 bg-indigo-600 text-white rounded-xl shadow-glow-indigo flex items-center space-x-2 font-bold text-sm">
                    <Calendar className="w-4 h-4" />
                    <span>{new Date().toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
                 </div>
@@ -217,7 +249,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
       {/* Overlay for mobile menu */}
       {isMobileMenuOpen && (
         <div 
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-20 md:hidden"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}

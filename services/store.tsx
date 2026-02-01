@@ -11,8 +11,10 @@ interface AppState {
   transactions: Transaction[];
   policies: Policy;
   rateCards: RateCard[];
+  theme: 'dark' | 'light';
   login: (role: UserRole) => void;
   logout: () => void;
+  toggleTheme: () => void;
   createBooking: (booking: Omit<Booking, 'id' | 'status' | 'qrCode' | 'paymentQr'>) => Promise<Booking>;
   updateBookingStatus: (bookingId: string, status: BookingStatus) => void;
   cancelBooking: (bookingId: string, reason?: string) => void;
@@ -35,6 +37,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [policies, setPolicies] = useState<Policy>(MOCK_POLICIES);
   const [rateCards, setRateCards] = useState<RateCard[]>(MOCK_RATE_CARDS);
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
 
   // Initialize with some dummy bookings for demo
   useEffect(() => {
@@ -75,6 +78,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logout = () => setCurrentUser(null);
+  
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+  };
 
   const calculatePrice = (resourceId: string, date: string, hour: number, duration: number): number => {
       const resource = resources.find(r => r.id === resourceId);
@@ -213,8 +220,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       transactions,
       policies,
       rateCards,
+      theme,
       login,
       logout,
+      toggleTheme,
       createBooking,
       updateBookingStatus,
       cancelBooking,
