@@ -1,0 +1,8 @@
+{
+  "name": "ArenaOS - Venue Operating System",
+  "description": "A multi-tenant SaaS platform for sports arena booking, management, and operations.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ]
+}
