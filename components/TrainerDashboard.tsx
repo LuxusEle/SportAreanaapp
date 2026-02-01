@@ -3,13 +3,15 @@ import React, { useState } from 'react';
 import { MOCK_TRAINEES } from '../constants';
 import { useApp } from '../services/store';
 import { Calendar, Clock, User, CheckCircle, XCircle, MoreVertical, ClipboardList } from 'lucide-react';
+import { BookingStatus } from '../types';
 
 interface TrainerDashboardProps {
   activeTab: string;
+  navigateTo: (tab: string) => void;
 }
 
-export const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ activeTab }) => {
-  const { bookings, resources, currentUser } = useApp();
+export const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ activeTab, navigateTo }) => {
+  const { bookings, resources, currentUser, updateBookingStatus } = useApp();
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   
   // State for availability grid (Set of strings "Day-Hour")
@@ -25,6 +27,16 @@ export const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ activeTab })
           else next.add(key);
           return next;
       });
+  };
+
+  const handleCompleteSession = () => {
+    if (selectedSession) {
+        if(confirm("Are you sure you want to complete this session?")) {
+            updateBookingStatus(selectedSession, BookingStatus.COMPLETED);
+            setSelectedSession(null);
+            alert("Session marked as completed.");
+        }
+    }
   };
 
   if (activeTab === 'home') {
@@ -78,7 +90,15 @@ export const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ activeTab })
                                 <p className="text-sm text-gray-500">{session.date} • {session.duration}h</p>
                             </div>
                         </div>
-                        <button className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-lg text-sm hover:bg-gray-50">View Roster</button>
+                        <button 
+                          onClick={() => {
+                            setSelectedSession(session.id);
+                            navigateTo('sessions');
+                          }}
+                          className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-lg text-sm hover:bg-gray-50"
+                        >
+                          View Roster
+                        </button>
                      </div>
                  )
              })}
@@ -137,13 +157,18 @@ export const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ activeTab })
                                               <span className="font-bold text-gray-800">Student Name {i+1}</span>
                                           </div>
                                           <div className="flex space-x-2">
-                                              <button className="p-2 text-green-600 bg-green-50 rounded-lg hover:bg-green-100"><CheckCircle className="w-5 h-5"/></button>
-                                              <button className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100"><XCircle className="w-5 h-5"/></button>
+                                              <button onClick={() => alert("Marked present")} className="p-2 text-green-600 bg-green-50 rounded-lg hover:bg-green-100"><CheckCircle className="w-5 h-5"/></button>
+                                              <button onClick={() => alert("Marked absent")} className="p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100"><XCircle className="w-5 h-5"/></button>
                                           </div>
                                       </div>
                                   ))}
                               </div>
-                              <button className="w-full mt-4 py-3 bg-gray-900 text-white rounded-xl font-bold">Complete Session</button>
+                              <button 
+                                onClick={handleCompleteSession}
+                                className="w-full mt-4 py-3 bg-gray-900 text-white rounded-xl font-bold"
+                              >
+                                Complete Session
+                              </button>
                           </>
                       ) : (
                           <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
@@ -187,7 +212,7 @@ export const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ activeTab })
                                       <div className="bg-indigo-600 h-2 rounded-full transition-all duration-1000" style={{ width: `${trainee.progress}%` }}></div>
                                   </div>
                               </div>
-                              <button className="w-full py-2 mt-4 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                              <button onClick={() => alert("Viewing trainee details...")} className="w-full py-2 mt-4 bg-white border border-gray-200 rounded-xl font-bold text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                                   View Details
                               </button>
                           </div>
@@ -203,7 +228,12 @@ export const TrainerDashboard: React.FC<TrainerDashboardProps> = ({ activeTab })
           <div className="space-y-6">
               <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold text-gray-900">Weekly Schedule</h2>
-                  <button className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-md">Save Changes</button>
+                  <button 
+                    onClick={() => alert("Availability schedule saved!")}
+                    className="bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-md"
+                  >
+                    Save Changes
+                  </button>
               </div>
 
               <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-glass border border-white/50 p-8 overflow-x-auto">

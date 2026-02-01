@@ -6,9 +6,10 @@ import { Calendar, Clock, CheckCircle, Search, MapPin, QrCode, ArrowRight, User 
 
 interface PlayerDashboardProps {
   activeTab: string;
+  navigateTo: (tab: string) => void;
 }
 
-export const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ activeTab }) => {
+export const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ activeTab, navigateTo }) => {
   const { resources, bookings, transactions, currentUser, createBooking, tenant, cancelBooking, policies } = useApp();
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
   const [bookingStep, setBookingStep] = useState<'SELECT' | 'TIME' | 'QUANTITY' | 'PAYMENT' | 'SUCCESS'>('SELECT');
@@ -17,6 +18,7 @@ export const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ activeTab }) =
   const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
   const [generatedBooking, setGeneratedBooking] = useState<Booking | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const myBookings = bookings.filter(b => b.userId === currentUser?.id).sort((a, b) => b.id.localeCompare(a.id));
   const myTransactions = transactions.filter(t => t.userId === currentUser?.id).sort((a, b) => b.date.localeCompare(a.date));
@@ -50,25 +52,43 @@ export const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ activeTab }) =
     }
   };
 
+  const handleDownloadReceipt = () => {
+    alert("Receipt downloaded successfully!");
+  };
+
   // --- MY BOOKINGS VIEW ---
   if (activeTab === 'my-bookings') {
+    const displayedBookings = showHistory 
+        ? myBookings.filter(b => b.status === BookingStatus.COMPLETED || b.status === BookingStatus.CANCELLED)
+        : myBookings.filter(b => b.status !== BookingStatus.COMPLETED && b.status !== BookingStatus.CANCELLED);
+
     return (
       <section className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-8">
-           <h2 className="text-2xl font-bold text-gray-900">Upcoming Sessions</h2>
-           <button className="text-sm font-bold text-indigo-600 bg-white px-4 py-2 rounded-lg shadow-sm">History</button>
+           <h2 className="text-2xl font-bold text-gray-900">{showHistory ? 'Booking History' : 'Upcoming Sessions'}</h2>
+           <button 
+             onClick={() => setShowHistory(!showHistory)}
+             className={`text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-colors ${showHistory ? 'bg-indigo-600 text-white' : 'bg-white text-indigo-600'}`}
+           >
+             {showHistory ? 'View Upcoming' : 'View History'}
+           </button>
         </div>
         
-        {myBookings.length === 0 ? (
+        {displayedBookings.length === 0 ? (
           <div className="text-center py-20 bg-white/50 rounded-3xl border border-white/60 shadow-glass-sm">
             <Calendar className="w-16 h-16 text-indigo-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-gray-800">No active bookings</h3>
+            <h3 className="text-lg font-bold text-gray-800">No {showHistory ? 'past' : 'upcoming'} bookings</h3>
             <p className="text-gray-500 mb-6">You haven't booked any sessions yet.</p>
-            <button className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30">Book Now</button>
+            <button 
+              onClick={() => navigateTo('explore')}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/30"
+            >
+              Book Now
+            </button>
           </div>
         ) : (
           <div className="space-y-4">
-            {myBookings.map((booking, idx) => {
+            {displayedBookings.map((booking, idx) => {
               const res = resources.find(r => r.id === booking.resourceId);
               return (
                 <div key={booking.id} className="group relative">
@@ -102,7 +122,10 @@ export const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ activeTab }) =
                        
                        {booking.status === BookingStatus.CONFIRMED && (
                          <>
-                           <button className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 transition-colors">
+                           <button 
+                             onClick={() => alert(`Entry Pass QR Code:\n\n${booking.qrCode}\n\nPresent this at the venue scanner.`)}
+                             className="flex items-center space-x-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-md hover:bg-indigo-700 transition-colors"
+                           >
                              <QrCode className="w-4 h-4" />
                              <span>Entry Pass</span>
                            </button>
@@ -155,7 +178,10 @@ export const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ activeTab }) =
                                       <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold">{tx.status}</span>
                                   </td>
                                   <td className="px-6 py-4">
-                                      <button className="text-indigo-600 hover:text-indigo-800 font-bold text-xs flex items-center">
+                                      <button 
+                                        onClick={handleDownloadReceipt}
+                                        className="text-indigo-600 hover:text-indigo-800 font-bold text-xs flex items-center"
+                                      >
                                           <Receipt className="w-3 h-3 mr-1" /> Receipt
                                       </button>
                                   </td>
@@ -324,12 +350,13 @@ export const PlayerDashboard: React.FC<PlayerDashboardProps> = ({ activeTab }) =
                   setSelectedResource(null);
                   setSelectedTime(null);
                   setSelectedQuantity(1);
+                  navigateTo('explore'); // Optionally navigate back to home
                 }}
                 className="w-full bg-white border-2 border-gray-100 text-gray-900 py-3 rounded-xl font-bold hover:bg-gray-50 transition-colors"
               >
                 Back to Home
               </button>
-              <button className="text-indigo-600 font-bold text-sm">Download Receipt</button>
+              <button onClick={handleDownloadReceipt} className="text-indigo-600 font-bold text-sm">Download Receipt</button>
           </div>
         </div>
       </div>

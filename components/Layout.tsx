@@ -32,41 +32,61 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
   const { currentUser, logout, tenant } = useApp();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
 
+  // Helper for active button styling
+  const activeBtn = (color: string = 'indigo') => {
+    const map: Record<string, string> = {
+      emerald: "bg-emerald-600 ring-emerald-300/30",
+      orange: "bg-orange-600 ring-orange-300/30",
+      red: "bg-red-600 ring-red-300/30",
+      violet: "bg-violet-600 ring-violet-300/30",
+      blue: "bg-blue-600 ring-blue-300/30",
+      indigo: "bg-indigo-600 ring-indigo-300/30",
+      slate: "bg-slate-700 ring-white/10",
+    };
+
+    const style = map[color] || map['indigo'];
+
+    // Warm glow shadow as requested for "dark mode" aesthetic
+    const glow = "shadow-[0_10px_22px_rgba(0,0,0,0.4),0_0_26px_rgba(255,214,102,0.28),0_0_10px_rgba(255,244,230,0.18)]";
+
+    return `transform -translate-y-1 text-white ring-1 ${style} ${glow}`;
+  };
+
   const getNavItems = () => {
     switch (currentUser?.role) {
       case UserRole.ADMIN:
         return [
-          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          { id: 'resources', label: 'Resources', icon: Dumbbell },
-          { id: 'customers', label: 'Customers', icon: Users },
-          { id: 'pricing', label: 'Pricing', icon: DollarSign },
-          { id: 'policies', label: 'Policies', icon: ShieldCheck },
-          { id: 'reports', label: 'Reports', icon: FileText },
-          { id: 'integrations', label: 'Integrations', icon: Settings },
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'violet' },
+          { id: 'resources', label: 'Resources', icon: Dumbbell, color: 'emerald' },
+          { id: 'customers', label: 'Customers', icon: Users, color: 'orange' },
+          { id: 'pricing', label: 'Pricing', icon: DollarSign, color: 'blue' },
+          { id: 'policies', label: 'Policies', icon: ShieldCheck, color: 'red' },
+          { id: 'reports', label: 'Reports', icon: FileText, color: 'violet' },
+          { id: 'integrations', label: 'Integrations', icon: Settings, color: 'slate' },
         ];
       case UserRole.STAFF:
         return [
-          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-          { id: 'walkin', label: 'New Walk-in', icon: Users },
-          { id: 'checkin', label: 'Check-in', icon: QrCode },
-          { id: 'bookings', label: 'Bookings', icon: Calendar },
-          { id: 'payments', label: 'Payments', icon: CreditCard },
+          { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, color: 'violet' },
+          { id: 'walkin', label: 'New Walk-in', icon: Users, color: 'orange' },
+          { id: 'checkin', label: 'Check-in', icon: QrCode, color: 'emerald' },
+          { id: 'bookings', label: 'Bookings', icon: Calendar, color: 'blue' },
+          { id: 'payments', label: 'Payments', icon: CreditCard, color: 'red' },
         ];
       case UserRole.TRAINER:
         return [
-          { id: 'home', label: 'Home', icon: LayoutDashboard },
-          { id: 'sessions', label: 'Sessions', icon: ClipboardList },
-          { id: 'trainees', label: 'Trainees', icon: Users },
-          { id: 'availability', label: 'Availability', icon: Clock },
+          { id: 'home', label: 'Home', icon: LayoutDashboard, color: 'violet' },
+          { id: 'sessions', label: 'Sessions', icon: ClipboardList, color: 'blue' },
+          { id: 'trainees', label: 'Trainees', icon: Users, color: 'orange' },
+          { id: 'availability', label: 'Availability', icon: Clock, color: 'emerald' },
         ];
       case UserRole.PLAYER:
       default:
         return [
-          { id: 'explore', label: 'Book Now', icon: LayoutDashboard },
-          { id: 'my-bookings', label: 'My Bookings', icon: Calendar },
-          { id: 'packages', label: 'Packages', icon: Package },
-          { id: 'payments', label: 'Payments', icon: CreditCard },
-          { id: 'profile', label: 'Profile', icon: Users },
+          { id: 'explore', label: 'Book Now', icon: LayoutDashboard, color: 'violet' },
+          { id: 'my-bookings', label: 'My Bookings', icon: Calendar, color: 'blue' },
+          { id: 'packages', label: 'Packages', icon: Package, color: 'orange' },
+          { id: 'payments', label: 'Payments', icon: CreditCard, color: 'red' },
+          { id: 'profile', label: 'Profile', icon: Users, color: 'emerald' },
         ];
     }
   };
@@ -128,16 +148,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, setActiveTab }) =>
                     setIsMobileMenuOpen(false);
                   }}
                   className={`
-                    w-full flex items-center space-x-4 px-5 py-4 rounded-2xl transition-all duration-300 group relative overflow-hidden
+                    w-full flex items-center space-x-4 px-5 py-4 rounded-2xl transition-all duration-300 group relative overflow-hidden text-left
                     ${isActive 
-                      ? 'bg-white shadow-lg text-indigo-600 font-bold translate-x-1' 
+                      ? activeBtn(item.color)
                       : 'hover:bg-white/40 text-gray-600 hover:text-gray-900'
                     }
                   `}
                 >
-                  <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'scale-110' : 'group-hover:scale-110'}`} />
-                  <span className="relative z-10">{item.label}</span>
-                  {isActive && <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-indigo-500 rounded-r-full" />}
+                  <Icon className={`w-5 h-5 transition-transform duration-300 ${isActive ? 'text-white scale-110' : 'group-hover:scale-110'}`} />
+                  <span className={`relative z-10 font-semibold ${isActive ? 'text-white' : ''}`}>{item.label}</span>
                 </button>
               );
             })}

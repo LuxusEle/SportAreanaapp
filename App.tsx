@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useApp } from './services/store';
 import { UserRole } from './types';
@@ -132,11 +133,11 @@ const App: React.FC = () => {
         return <StaffDashboard activeTab={activeTab} />;
       
       case UserRole.TRAINER:
-        return <TrainerDashboard activeTab={activeTab} />;
+        return <TrainerDashboard activeTab={activeTab} navigateTo={setActiveTab} />;
 
       case UserRole.PLAYER:
         if (activeTab === 'profile') return <div className="p-8 text-center bg-white rounded-xl shadow-sm"><h2 className="text-xl font-bold">Profile</h2><p className="text-gray-500">User profile settings would go here.</p></div>;
-        return <PlayerDashboard activeTab={activeTab} />;
+        return <PlayerDashboard activeTab={activeTab} navigateTo={setActiveTab} />;
       
       default:
         return <div>Unknown Role</div>;

@@ -103,7 +103,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
                           <p className="text-sm text-gray-500 mb-4 capitalize">{res.mode.toLowerCase()} Access • Capacity: {res.capacity}</p>
                           <div className="flex justify-between items-center">
                               <span className="font-extrabold text-indigo-600 text-lg">${res.hourlyRate}<span className="text-xs text-gray-400 font-normal">/hr (Base)</span></span>
-                              <button className="px-3 py-1 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50">Edit</button>
+                              <button onClick={() => alert("Edit resource feature coming soon.")} className="px-3 py-1 border border-gray-200 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-50">Edit</button>
                           </div>
                       </div>
                   ))}
@@ -137,7 +137,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
           <div className="space-y-6">
               <div className="flex justify-between items-center">
                   <h2 className="text-2xl font-bold text-gray-900">Rate Cards</h2>
-                  <button className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold">New Rate Card</button>
+                  <button onClick={() => alert("Create Rate Card modal coming soon.")} className="bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold">New Rate Card</button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {rateCards.map(rc => (
@@ -307,7 +307,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab = 'das
                                   <td className="px-6 py-4"><span className="text-xs font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded-md">{user.role}</span></td>
                                   <td className="px-6 py-4 font-mono">{user.credits || 0}</td>
                                   <td className="px-6 py-4"><span className="text-green-500 font-bold text-xs">● Active</span></td>
-                                  <td className="px-6 py-4"><button className="text-gray-400 hover:text-indigo-600 font-bold text-xs">View History</button></td>
+                                  <td className="px-6 py-4"><button onClick={() => alert("Customer History feature coming soon")} className="text-gray-400 hover:text-indigo-600 font-bold text-xs">View History</button></td>
                               </tr>
                           ))}
                       </tbody>
